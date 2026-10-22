@@ -30,8 +30,7 @@ For visualization, install [R](https://cran.r-project.org/) and the required pac
 Rscript -e 'install.packages(c("optparse", "plotly", "formattable", "dplyr", "tidyr", "ggplot2", "lubridate", "rlang", "htmlwidgets", "plyr"), repos="https://cloud.r-project.org")'
 ```
 
-R is only needed for the sunburst diagrams. To run augmentation and mortality
-prediction without it, pass `--skip_sunburst` to `run_pipeline.py`.
+R is only needed for the sunburst diagrams. 
 
 ## Data Preparation
 
