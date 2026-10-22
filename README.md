@@ -56,7 +56,7 @@ python preprocessing/process_real_data.py \
 Preprocessing creates model-ready `real.csv` files with these 11 columns:
 
 ```text
-GENDER, ETHNICITY, AGE_GROUP, MORTALITY_WITHINTHIRTYDAYS,
+GENDER, ETHNICITY, AGE_GROUP, MORTALITY,
 ADMISSION_LOCATION, ADMISSION_TYPE, INSURANCE, DISEASE,
 FIRST_CAREUNIT, LAST_CAREUNIT, LOS
 ```

@@ -33,7 +33,7 @@ FINAL_MODEL_COLUMNS = [
     'GENDER',
     'ETHNICITY',
     'AGE_GROUP',
-    'MORTALITY_WITHINTHIRTYDAYS',
+    'MORTALITY',
     'ADMISSION_LOCATION',
     'ADMISSION_TYPE',
     'INSURANCE',
@@ -231,7 +231,7 @@ def process_mimic_data(input_dir='.', output_file='processed_real_data.csv'):
     
     print("Processing patient data...")
     # Create mortality indicator
-    patients['MORTALITY_WITHINTHIRTYDAYS'] = patients['DOD'].apply(
+    patients['MORTALITY'] = patients['DOD'].apply(
         lambda x: 0 if pd.isna(x) else 1
     )
     

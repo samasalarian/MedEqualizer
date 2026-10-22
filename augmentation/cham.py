@@ -140,7 +140,7 @@ def greedy_sigma(under: pd.DataFrame) -> dict:
 def build_subdata(df: pd.DataFrame) -> pd.DataFrame:
     drop_cols = [c for c in SUBDATA_DROP if c in df.columns]
     sub = df.drop(columns=drop_cols).copy()
-    sub['MORTALITY_WITHINTHIRTYDAYS'] = sub['MORTALITY_WITHINTHIRTYDAYS'].astype(str)
+    sub['MORTALITY'] = sub['MORTALITY'].astype(str)
     for col in sub.select_dtypes(include=['object', 'category']).columns:
         sub[col] = sub[col].astype(str)
     return sub

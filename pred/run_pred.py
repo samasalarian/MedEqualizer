@@ -42,7 +42,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
-LABEL_COL      = 'MORTALITY_WITHINTHIRTYDAYS'
+LABEL_COL      = 'MORTALITY'
 TEST_SIZE      = 0.2
 DEFAULT_SEEDS  = [42, 52, 62, 72, 82]
 SCALE_REQUIRED = {'KNN', 'MLP', 'Logistic Regression'}

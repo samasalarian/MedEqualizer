@@ -1,8 +1,3 @@
-# Rscript visualization/sunburst_diagram/create_sunburst.R --data mimic4 --model ctgan --version before
-# Rscript visualization/sunburst_diagram/create_sunburst.R --data mimic3 --model ctgan --version before
-
-# Rscript visualization/sunburst_diagram/create_sunburst.R --data mimic3 --model ctgan --version after
-
 library(optparse)
 library(plotly)
 library(formattable)
@@ -128,9 +123,9 @@ add_age <- function(data) {
 }
 
 add_mortality <- function(data) {
-  data$mortality_withinthirtydays <- ifelse(as.integer(data$MORTALITY_WITHINTHIRTYDAYS) == 0, "Alive",
-                                            ifelse(as.integer(data$MORTALITY_WITHINTHIRTYDAYS) == 1, "Died",
-                                                   NA_character_))
+  data$mortality <- ifelse(as.integer(data$MORTALITY) == 0, "Alive",
+                         ifelse(as.integer(data$MORTALITY) == 1, "Died",
+                                NA_character_))
   return(data)
 }
 
@@ -192,11 +187,11 @@ preprocess_mimic_data <- function(reference_data, synthetic_data, group_vars,
 }
 
 # ── Run ────────────────────────────────────────────────────────────────────────
-output_base <- "mortality_withinthirtydays.race.age.gender"
+output_base <- "mortality.race.age.gender"
 
 group_vars <- unlist(lapply(strsplit(output_base, "\\.")[[1]], function(x) {
-  if (tolower(x) == "mortality_withinthirtydays") {
-    return("mortality_withinthirtydays")
+  if (tolower(x) == "mortality") {
+    return("mortality")
   } else {
     return(toupper(x))
   }
