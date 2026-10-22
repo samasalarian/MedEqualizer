@@ -1,0 +1,202 @@
+# MedEqualizer
+
+MedEqualizer investigates and improves intersectional demographic representation
+in synthetic healthcare data. It identifies underrepresented intersections of
+gender, ethnicity, and age, augments them with quality-filtered synthetic records,
+and evaluates representation and downstream mortality prediction. The manuscript
+evaluates CTGAN, HealthGAN, and MedGAN on MIMIC-III and MIMIC-IV.
+
+## Installation
+
+Run commands from the repository root in Bash, using a private working copy.
+
+| Conda environment | Purpose |
+| --- | --- |
+| `env` | CTGAN generation and augmentation, preprocessing, mortality prediction, Python bar charts |
+| `fenv` | HealthGAN and MedGAN generation and augmentation; Python 3.6 / TensorFlow 1.13.1 on Linux x86_64 |
+
+```bash
+conda env create -f reproducibility/environment-env.yml
+conda env create -f reproducibility/environment-fenv.yml
+conda activate fenv
+python -m pip install --no-deps -e ./synthetic_data_generation/healthgan/synthetic_data
+```
+
+The editable installation must point to the `synthetic_data` package in this
+release. Activate the appropriate environment before each stage;
+`run_pipeline.py` does not switch environments. TensorFlow 2.x cannot replace
+the legacy TensorFlow dependency.
+
+Install R separately and make `Rscript` available on `PATH` for sunburst
+visualization. The recorded versions are R 4.2.3, `optparse` 1.7.5,
+`plotly` 4.10.4, `formattable` 0.2.1, `dplyr` 1.1.4, `tidyr` 1.3.1,
+`ggplot2` 3.5.1, `lubridate` 1.9.3, `rlang` 1.1.4, and `htmlwidgets` 1.6.4.
+The active workflow also requires `plyr` (historical version unverified).
+The optional R table helper requires `gt` and `kableExtra`.
+
+## Data Preparation
+
+MIMIC-III and MIMIC-IV require authorized access through PhysioNet and are not
+included in this repository. Keep downloaded data in a private directory.
+Use these input layouts, replacing the example directories below with your own:
+
+| Dataset | Files relative to the input directory |
+| --- | --- |
+| MIMIC-III | `PATIENTS.csv`, `ADMISSIONS.csv`, `DIAGNOSES_ICD.csv`, `ICUSTAYS.csv` |
+| MIMIC-IV | `hosp/patients.csv`, `hosp/admissions.csv`, `hosp/diagnoses_icd.csv`, `icu/icustays.csv` (also accepts `.csv.gz`) |
+
+```bash
+conda activate env
+python preprocessing/process_real_data.py \
+  --input-dir /path/to/mimiciii --output data/Mimic3/real/real.csv
+python preprocessing/process_real_data.py \
+  --input-dir /path/to/mimiciv --output data/Mimic4/real/real.csv
+```
+
+Preprocessing creates model-ready `real.csv` files with these 11 columns:
+
+```text
+GENDER, ETHNICITY, AGE_GROUP, MORTALITY_WITHINTHIRTYDAYS,
+ADMISSION_LOCATION, ADMISSION_TYPE, INSURANCE, DISEASE,
+FIRST_CAREUNIT, LAST_CAREUNIT, LOS
+```
+
+`AGE_GROUP` is `<= 45` for ages ≤45, `46-65` for ages >45–65,
+`66-80` for ages >65–80, and `+81` for ages >80. Missing ages remain missing.
+Identifiers, dates, and raw age are excluded from the model-ready output.
+
+## Reproducing the Experiments
+
+Execution order: preprocessing → baseline synthetic generation → MedEqualizer
+augmentation/filtering → final synthetic generation → mortality prediction.
+The pipeline performs augmentation, subgroup-specific one-class SVM filtering,
+discriminative AUROC filtering, and final generation in one invocation.
+
+The six final configurations are recorded in
+[`reproducibility/final-configurations.json`](reproducibility/final-configurations.json).
+Select one row at a time; repeat the following workflow for all six rows.
+
+| Dataset | Model | tau | min_subgroup_size | epochs | aug_epochs | workers | max_tries | nodes |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| mimic3 | ctgan | 12 | 5 | 300 | 1000 | 8 | 100 | 64 |
+| mimic3 | healthgan | 14 | 5 | 10000 | 3000 | 8 | 300 | 64 |
+| mimic3 | medgan | 8 | 5 | 1000 | 300 | 1 | 100 | 256 |
+| mimic4 | ctgan | 12 | 5 | 300 | 1000 | 8 | 100 | 64 |
+| mimic4 | healthgan | 8 | 5 | 10000 | 3000 | 8 | 300 | 64 |
+| mimic4 | medgan | 14 | 5 | 1000 | 300 | 8 | 100 | 64 |
+
+All runs use `nu=0.2`, `gamma=auto`, `auroc=0.9`,
+`classifier=random_forest`, augmentation `batch_size=500`, `max_attempts=10`,
+`n_samples=100000`, `aug_seed=42`, `gen_seed=42`, and `critic=5`.
+HealthGAN and MedGAN augmentation executes serially. CTGAN does not use
+`aug_epochs`; `nodes` and `critic` apply only to HealthGAN. MedGAN baseline and
+final synthesis use 100 pretraining epochs and batch size 1000.
+
+Set the variables from your selected row. This example selects MIMIC-III CTGAN;
+use `cohort=Mimic4` for `dataset=mimic4`.
+
+```bash
+dataset=mimic3; cohort=Mimic3; model=ctgan
+tau=12; epochs=300; aug_epochs=1000; workers=8; max_tries=100; nodes=64
+real="data/$cohort/real/real.csv"
+synth="data/$cohort/synthetic/$model"
+mkdir -p "$synth"
+```
+
+Generate the baseline with the matching branch below. Preserve `before.csv`
+before running augmentation and final generation.
+
+```bash
+case "$model" in
+  ctgan)
+    conda activate env
+    python synthetic_data_generation/ctgan/ctgan_gen.py \
+      --data "$real" --version "$dataset" --epochs "$epochs" \
+      --n_samples 100000 --seed 42 --output_path "$synth/before.csv" \
+      --model_output_path "synthetic_data_generation/ctgan/gen_data/$dataset/ctgan_model.pkl"
+    ;;
+  healthgan)
+    conda activate fenv
+    python synthetic_data_generation/healthgan/healthgan_gen.py \
+      --data "$real" --version "$dataset" --epochs "$epochs" \
+      --nodes "$nodes" --critic 5 --n_samples 100000 --seed 42
+    cp "synthetic_data_generation/healthgan/gen_data/$dataset/synthetic_decoded.csv" "$synth/before.csv"
+    ;;
+  medgan)
+    conda activate fenv
+    python synthetic_data_generation/medgan/medgan_gen.py \
+      --data "$real" --version "$dataset" --epochs "$epochs" \
+      --pretrain_epochs 100 --batch_size 1000 --n_samples 100000 --seed 42
+    cp "synthetic_data_generation/medgan/gen_data/$dataset/synthetic_decoded.csv" "$synth/before.csv"
+    ;;
+esac
+```
+
+In the same shell and generator environment, run augmentation, filtering, final
+synthesis, and R sunbursts. Python bar charts are run separately in `env` below.
+`--force_augment` ensures a fresh augmentation run if its output already exists.
+If no candidates pass the quality gates, the pipeline stops before final synthesis.
+
+```bash
+python run_pipeline.py --dataset "$dataset" --model "$model" --tau "$tau" \
+  --nu 0.2 --gamma auto --auroc 0.9 --classifier random_forest \
+  --workers "$workers" --batch_size 500 --max_tries "$max_tries" --max_attempts 10 \
+  --aug_epochs "$aug_epochs" --min_subgroup_size 5 --epochs "$epochs" \
+  --n_samples 100000 --nodes "$nodes" --critic 5 --aug_seed 42 --gen_seed 42 \
+  --force_augment --skip_barchart
+
+conda activate env
+tag="${dataset}_${model}_tau${tau}_nu0p2_auto_0p9_rf"
+figdir="visualization/results/$model/$tag"
+python visualization/sunburst_diagram/create_barchart.py \
+  --before_csv "$figdir/plot_before.csv" --after_csv "$figdir/plot_after.csv" \
+  --outdir "$figdir" --tag "$tag"
+```
+
+For execution without visualization, add `--skip_sunburst` to the pipeline
+command and omit the subsequent bar-chart command.
+
+After generating all six baseline/final dataset pairs, run mortality prediction
+in `env`:
+
+```bash
+conda activate env
+python pred/mortality_classification.py
+```
+
+The driver uses stratified 80/20 splits with seeds `42 52 62 72 82` and reports
+AUROC for Decision Tree, KNN, Gradient Boosting, Histogram Gradient Boosting,
+and MLP.
+
+## Outputs
+
+| Output | Location |
+| --- | --- |
+| Model-ready input | `data/<Mimic3-or-Mimic4>/real/real.csv` |
+| Augmented cohort | `data/<cohort>/augmented/<model>/<tau>_0p2_auto_0p9_random_forest.csv` |
+| Baseline / final synthetic data | `data/<cohort>/synthetic/<model>/before.csv` / `after_tau=<tau>_nu0p2_auto_0p9_random_forest.csv` |
+| Mortality evaluation | `pred/mortality_auroc_table.csv` |
+| Parameters, equity CSVs, sunburst HTML, bar-chart PNG | `visualization/results/<model>/<tag>/` |
+
+Generator intermediates and checkpoints are saved under
+`synthetic_data_generation/<model>/`; augmentation logs are saved as
+`data/augmentation_counts_<model>.xlsx`. Sunburst HTML requires its sibling
+`*_files/` assets.
+
+Keep MIMIC data, patient-level processed/augmented/synthetic records, encoded
+intermediates, trained models, checkpoints, and run logs private; do not upload
+them publicly. Review aggregate results and figures for disclosure before release.
+
+## Reproducibility Notes
+
+All three generators have passed execution tests using artificial data;
+HealthGAN and MedGAN were tested on Linux. These tests establish execution,
+not full numerical reproduction of the manuscript experiments, which has not
+been independently verified. Seed 42 is the documented CTGAN baseline
+reconstruction seed, not a verified historical baseline seed. Bit-for-bit
+reproduction of historical outputs is not established.
+
+## Citation
+
+*MedEqualizer: A Framework Investigating Bias in Synthetic Medical Data and
+Mitigation via Augmentation*
