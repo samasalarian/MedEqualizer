@@ -30,13 +30,11 @@ import pandas as pd
 
 warnings.filterwarnings('ignore')
 
-from sklearn.ensemble import (ExtraTreesClassifier, GradientBoostingClassifier,
-                              HistGradientBoostingClassifier, RandomForestClassifier)
+from sklearn.ensemble import (GradientBoostingClassifier,
+                              HistGradientBoostingClassifier)
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
-from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import OrdinalEncoder, StandardScaler
@@ -45,7 +43,7 @@ from sklearn.tree import DecisionTreeClassifier
 LABEL_COL      = 'MORTALITY'
 TEST_SIZE      = 0.2
 DEFAULT_SEEDS  = [42, 52, 62, 72, 82]
-SCALE_REQUIRED = {'KNN', 'MLP', 'Logistic Regression'}
+SCALE_REQUIRED = {'KNN', 'MLP'}
 METRICS        = ['roc_auc']
 
 
@@ -53,12 +51,8 @@ METRICS        = ['roc_auc']
 
 def get_classifiers(seed: int) -> dict:
     return {
-        'Logistic Regression': LogisticRegression(max_iter=1000, random_state=seed),
         'Decision Tree':       DecisionTreeClassifier(max_depth=10, random_state=seed),
-        'Naive Bayes':         GaussianNB(),
         'KNN':                 KNeighborsClassifier(n_neighbors=5, n_jobs=-1),
-        'Random Forest':       RandomForestClassifier(n_estimators=100, random_state=seed, n_jobs=-1),
-        'Extra Trees':         ExtraTreesClassifier(n_estimators=100, random_state=seed, n_jobs=-1),
         'Gradient Boosting':   GradientBoostingClassifier(n_estimators=100, random_state=seed),
         'Hist GB':             HistGradientBoostingClassifier(max_iter=100, random_state=seed),
         'MLP':                 MLPClassifier(hidden_layer_sizes=(100, 50), max_iter=500,
