@@ -8,7 +8,7 @@ evaluates CTGAN, HealthGAN, and MedGAN on MIMIC-III and MIMIC-IV.
 
 ## Installation
 
-Run commands from the repository root in Bash, using a private working copy.
+Run commands from the repository root in bash.
 
 | Conda environment | Purpose |
 | --- | --- |
@@ -22,11 +22,6 @@ conda activate fenv
 python -m pip install --no-deps -e ./synthetic_data_generation/healthgan/synthetic_data
 ```
 
-The editable installation must point to the `synthetic_data` package in this
-release. Activate the appropriate environment before each stage;
-`run_pipeline.py` does not switch environments. TensorFlow 2.x cannot replace
-the legacy TensorFlow dependency.
-
 Install R separately and make `Rscript` available on `PATH` for sunburst
 visualization. The recorded versions are R 4.2.3, `optparse` 1.7.5,
 `plotly` 4.10.4, `formattable` 0.2.1, `dplyr` 1.1.4, `tidyr` 1.3.1,
@@ -37,13 +32,12 @@ The optional R table helper requires `gt` and `kableExtra`.
 ## Data Preparation
 
 MIMIC-III and MIMIC-IV require authorized access through PhysioNet and are not
-included in this repository. Keep downloaded data in a private directory.
-Use these input layouts, replacing the example directories below with your own:
+included in this repository. Use these input layouts, replacing the example directories below with your own:
 
 | Dataset | Files relative to the input directory |
 | --- | --- |
 | MIMIC-III | `PATIENTS.csv`, `ADMISSIONS.csv`, `DIAGNOSES_ICD.csv`, `ICUSTAYS.csv` |
-| MIMIC-IV | `hosp/patients.csv`, `hosp/admissions.csv`, `hosp/diagnoses_icd.csv`, `icu/icustays.csv` (also accepts `.csv.gz`) |
+| MIMIC-IV | `patients.csv`, `admissions.csv`, `diagnoses_icd.csv`, `icu/icustays.csv` (also accepts `.csv.gz`) |
 
 ```bash
 conda activate env
@@ -60,10 +54,6 @@ GENDER, ETHNICITY, AGE_GROUP, MORTALITY,
 ADMISSION_LOCATION, ADMISSION_TYPE, INSURANCE, DISEASE,
 FIRST_CAREUNIT, LAST_CAREUNIT, LOS
 ```
-
-`AGE_GROUP` is `<= 45` for ages ≤45, `46-65` for ages >45–65,
-`66-80` for ages >65–80, and `+81` for ages >80. Missing ages remain missing.
-Identifiers, dates, and raw age are excluded from the model-ready output.
 
 ## Reproducing the Experiments
 
@@ -133,8 +123,7 @@ esac
 ```
 
 In the same shell and generator environment, run augmentation, filtering, final
-synthesis, and R sunbursts. Python bar charts are run separately in `env` below.
-`--force_augment` ensures a fresh augmentation run if its output already exists.
+synthesis, and R sunbursts. `--force_augment` ensures a fresh augmentation run if its output already exists.
 If no candidates pass the quality gates, the pipeline stops before final synthesis.
 
 ```bash
@@ -144,14 +133,6 @@ python run_pipeline.py --dataset "$dataset" --model "$model" --tau "$tau" \
   --aug_epochs "$aug_epochs" --min_subgroup_size 5 --epochs "$epochs" \
   --n_samples 100000 --nodes "$nodes" --critic 5 --aug_seed 42 --gen_seed 42 \
   --force_augment --skip_barchart
-
-conda activate env
-tag="${dataset}_${model}_tau${tau}_nu0p2_auto_0p9_rf"
-figdir="visualization/results/$model/$tag"
-python visualization/sunburst_diagram/create_barchart.py \
-  --before_csv "$figdir/plot_before.csv" --after_csv "$figdir/plot_after.csv" \
-  --outdir "$figdir" --tag "$tag"
-```
 
 For execution without visualization, add `--skip_sunburst` to the pipeline
 command and omit the subsequent bar-chart command.
