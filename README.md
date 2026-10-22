@@ -22,12 +22,16 @@ conda activate fenv
 python -m pip install --no-deps -e ./synthetic_data_generation/healthgan/synthetic_data
 ```
 
-Install R separately and make `Rscript` available on `PATH` for sunburst
-visualization. The recorded versions are R 4.2.3, `optparse` 1.7.5,
-`plotly` 4.10.4, `formattable` 0.2.1, `dplyr` 1.1.4, `tidyr` 1.3.1,
-`ggplot2` 3.5.1, `lubridate` 1.9.3, `rlang` 1.1.4, and `htmlwidgets` 1.6.4.
-The active workflow also requires `plyr` (historical version unverified).
-The optional R table helper requires `gt` and `kableExtra`.
+### Visualization (Optional)
+
+For visualization, install [R](https://cran.r-project.org/) and the required packages:
+
+```bash
+Rscript -e 'install.packages(c("optparse", "plotly", "formattable", "dplyr", "tidyr", "ggplot2", "lubridate", "rlang", "htmlwidgets", "plyr"), repos="https://cloud.r-project.org")'
+```
+
+R is only needed for the sunburst diagrams. To run augmentation and mortality
+prediction without it, pass `--skip_sunburst` to `run_pipeline.py`.
 
 ## Data Preparation
 
@@ -168,6 +172,17 @@ Keep MIMIC data, patient-level processed/augmented/synthetic records, encoded
 intermediates, trained models, checkpoints, and run logs private; do not upload
 them publicly. Review aggregate results and figures for disclosure before release.
 
+## Licensing
+
+MedEqualizer-owned code is licensed under the [MIT License](LICENSE).
+
+CTGAN 0.11.0 is an external dependency licensed by DataCebo under the
+[Business Source License 1.1](https://github.com/sdv-dev/CTGAN/blob/v0.11.0/LICENSE).
+The bundled HealthGAN package retains its original
+[MIT license](synthetic_data_generation/healthgan/synthetic_data/LICENSE), and
+the bundled medGAN implementation retains its original
+[BSD 3-Clause license](synthetic_data_generation/medgan/LICENSE). See
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for attribution and scope.
 
 ## Citation
 

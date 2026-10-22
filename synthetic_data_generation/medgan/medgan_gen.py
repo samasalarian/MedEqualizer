@@ -26,7 +26,7 @@ from sklearn.preprocessing import OneHotEncoder
 
 
 # Columns to drop before MedGAN training (identifiers + continuous)
-DROP_COLS  = ['SUBJECT_ID', 'HADM_ID', 'ANCHOR_AGE', 'source']
+DROP_COLS  = ['SUBJECT_ID', 'HADM_ID', 'ANCHOR_AGE']
 CONTINUOUS = ['LOS']
 
 
