@@ -138,8 +138,7 @@ python run_pipeline.py --dataset "$dataset" --model "$model" --tau "$tau" \
   --force_augment 
 ```
 
-For execution without visualization, add `--skip_sunburst` and '--skip_barchart' to the pipeline
-command.
+For execution without visualization, add `--skip_sunburst` and '--skip_barchart' to the pipeline command.
 
 After generating all six baseline/final dataset pairs, run mortality prediction
 in `env`:
