@@ -187,16 +187,11 @@ Keep MIMIC data, patient-level processed/augmented/synthetic records, encoded
 intermediates, trained models, checkpoints, and run logs private; do not upload
 them publicly. Review aggregate results and figures for disclosure before release.
 
-## Reproducibility Notes
-
-All three generators have passed execution tests using artificial data;
-HealthGAN and MedGAN were tested on Linux. These tests establish execution,
-not full numerical reproduction of the manuscript experiments, which has not
-been independently verified. Seed 42 is the documented CTGAN baseline
-reconstruction seed, not a verified historical baseline seed. Bit-for-bit
-reproduction of historical outputs is not established.
 
 ## Citation
 
-*MedEqualizer: A Framework Investigating Bias in Synthetic Medical Data and
-Mitigation via Augmentation*
+If you use MedEqualizer in your research, please cite:
+
+Salarian, S., Zhang, Y., Padhee, S., & Parthasarathy, S. (2025).
+*MedEqualizer: A Framework Investigating Bias in Synthetic Medical Data and Mitigation via Augmentation.*
+arXiv:2511.01054. https://doi.org/10.48550/arXiv.2511.01054
