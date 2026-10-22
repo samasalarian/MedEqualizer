@@ -135,10 +135,11 @@ python run_pipeline.py --dataset "$dataset" --model "$model" --tau "$tau" \
   --workers "$workers" --batch_size 500 --max_tries "$max_tries" --max_attempts 10 \
   --aug_epochs "$aug_epochs" --min_subgroup_size 5 --epochs "$epochs" \
   --n_samples 100000 --nodes "$nodes" --critic 5 --aug_seed 42 --gen_seed 42 \
-  --force_augment --skip_barchart
+  --force_augment 
+```
 
-For execution without visualization, add `--skip_sunburst` to the pipeline
-command and omit the subsequent bar-chart command.
+For execution without visualization, add `--skip_sunburst` and '--skip_barchart' to the pipeline
+command.
 
 After generating all six baseline/final dataset pairs, run mortality prediction
 in `env`:
