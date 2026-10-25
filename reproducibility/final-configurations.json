@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "common": {
+    "nu": 0.2,
+    "gamma": "auto",
+    "auroc": 0.9,
+    "classifier": "random_forest",
+    "batch_size": 500,
+    "max_attempts": 10,
+    "n_samples": 100000,
+    "aug_seed": 42,
+    "gen_seed": 42,
+    "min_subgroup_size": 5
+  },
+  "experiments": [
+    {
+      "dataset": "mimic3",
+      "generator": "ctgan",
+      "tau": 12,
+      "epochs": 300,
+      "aug_epochs": 1000,
+      "workers": 8,
+      "max_tries": 100,
+      "nodes": 64,
+      "critic": 5
+    },
+    {
+      "dataset": "mimic3",
+      "generator": "healthgan",
+      "tau": 14,
+      "epochs": 10000,
+      "aug_epochs": 3000,
+      "workers": 8,
+      "max_tries": 300,
+      "nodes": 64,
+      "critic": 5
+    },
+    {
+      "dataset": "mimic3",
+      "generator": "medgan",
+      "tau": 8,
+      "epochs": 1000,
+      "aug_epochs": 300,
+      "workers": 1,
+      "max_tries": 100,
+      "nodes": 256,
+      "critic": 5,
+      "pretrain_epochs": 100,
+      "final_batch_size": 1000
+    },
+    {
+      "dataset": "mimic4",
+      "generator": "ctgan",
+      "tau": 12,
+      "epochs": 300,
+      "aug_epochs": 1000,
+      "workers": 8,
+      "max_tries": 100,
+      "nodes": 64,
+      "critic": 5
+    },
+    {
+      "dataset": "mimic4",
+      "generator": "healthgan",
+      "tau": 8,
+      "epochs": 10000,
+      "aug_epochs": 3000,
+      "workers": 8,
+      "max_tries": 300,
+      "nodes": 64,
+      "critic": 5
+    },
+    {
+      "dataset": "mimic4",
+      "generator": "medgan",
+      "tau": 14,
+      "epochs": 1000,
+      "aug_epochs": 300,
+      "workers": 8,
+      "max_tries": 100,
+      "nodes": 64,
+      "critic": 5,
+      "pretrain_epochs": 100,
+      "final_batch_size": 1000
+    }
+  ]
+}

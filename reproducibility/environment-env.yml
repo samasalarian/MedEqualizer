@@ -1,0 +1,27 @@
+# Modern environment for CTGAN, CTGAN-based MedEqualizer augmentation and
+# filtering, preprocessing, Python visualizations, and mortality prediction.
+#
+# The broad historical export contained contradictory Torch-family metadata.
+# The explicit Conda record and pip freeze both identify the imported `torch`
+# package as the Conda PyTorch 2.3.1 build; 2.6.0 appeared only for separately
+# installed torchaudio/torchvision packages, which this project does not import.
+name: env
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9.21
+  - pip=25.0
+  - pytorch=2.3.1
+  - pip:
+      - numpy==1.24.4
+      - pandas==2.2.3
+      - scipy==1.13.1
+      - scikit-learn==1.6.1
+      - matplotlib==3.9.4
+      - seaborn==0.13.2
+      - openpyxl==3.1.5
+      - ctgan==0.11.0
+      - sdv==1.19.0
+      - rdt==1.22.0
