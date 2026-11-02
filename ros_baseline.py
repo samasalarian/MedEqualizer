@@ -3,35 +3,31 @@
 ros_baseline.py  –  MedEqualizer  |  Random Oversampling (ROS) baseline
 ════════════════════════════════════════════════════════════════════════
 
-For each finalized configuration in reproducibility/final-configurations.json:
+For each finalized configuration in reproducibility/final-configurations.json,
+compare representation fairness of synthetic data generated from the original
+cohort, a random-oversampling (ROS) cohort, and the MedEqualizer cohort.
 
   augment   Build the ROS cohort: the real rows of the MedEqualizer augmented
             CSV plus, for every GENDER x ETHNICITY x AGE_GROUP subgroup, exactly
             as many real records (drawn from that subgroup with replacement) as
             MedEqualizer added to it.  Added rows get source='synthetic' so the
             generator input format is identical to the MedEqualizer cohort.
-  generate  Retrain the generator on the Original (real.csv), ROS or
-            MedEqualizer cohort with the finalized hyperparameters (same
-            scripts and arguments as run_pipeline.py) for a given seed.
-            --task i runs item i of the seed study (Slurm array index).
+  generate  Retrain the generator on the ROS cohort with the finalized
+            hyperparameters (same scripts and arguments as run_pipeline.py).
   evaluate  Label the 80 mortality x race x age x gender leaf subgroups of
             Original (before.csv), ROS and MedEqualizer (after_tau=...) with the
             repository's R log-disparity code and write one consolidated CSV.
-  seeds     Seed study (42, 52, 62, 72, 82): GAN retraining variability with
-            FIXED augmentation cohorts (augmentation itself is not rerun).
-            One long CSV; prints mean/SD and paired MedEqualizer - ROS.
   plot      Bar charts of ROS vs MedEqualizer from the consolidated CSV, one PDF.
   selftest  Validate augment + evaluate on artificial data.
 
-All outputs land in results/ros/.
+Seed 42 is used for ROS sampling and GAN training, matching the finalized
+MedEqualizer runs. All outputs land in results/ros/.
 
 Usage
 ─────
   python ros_baseline.py augment  --data_dir /path/to/data
-  python ros_baseline.py generate --data_dir /path/to/data --config 0
+  python ros_baseline.py generate --data_dir /path/to/data --config 0   # 0..5
   python ros_baseline.py evaluate --data_dir /path/to/data
-  python ros_baseline.py generate --data_dir /path/to/data --task 0  
-  python ros_baseline.py seeds    --data_dir /path/to/data
   python ros_baseline.py plot
   python ros_baseline.py selftest
 """
@@ -57,8 +53,7 @@ EQUITY_COLS = ['GENDER', 'ETHNICITY', 'AGE_GROUP']
 CATEGORIES = ['Highly Underrepresented', 'Underrepresented', 'Equitable',
               'Overrepresented', 'Highly Overrepresented']
 ARMS = ['original', 'ros', 'medequalizer']
-SEEDS = [42, 52, 62, 72, 82]
-SEED_DIR = OUT_DIR / 'seeds'
+SEED = 42
 PARAM_SUFFIX = '0p2_auto_0p9_random_forest'
 
 R_EVAL = r'''
@@ -136,7 +131,7 @@ def cmd_augment(args):
             continue
         p = paths(cfg, args.data_dir)
         medeq = pd.read_csv(p['medeq_aug'], low_memory=False)
-        ros = random_oversample(medeq, seed=args.seed)
+        ros = random_oversample(medeq, seed=SEED)
         target, got = added_per_subgroup(medeq), added_per_subgroup(ros)
         assert target.equals(got), 'per-subgroup ROS counts do not match'
         p['run_dir'].mkdir(parents=True, exist_ok=True)
@@ -147,27 +142,11 @@ def cmd_augment(args):
 
 # ── Generator retraining ───────────────────────────────────────────────────────
 
-def seed_tasks():
-    """(config index, arm, seed) for the seed study; ROS seed 42 reuses the main run."""
-    return [(i, arm, s) for i in range(len(load_configs())) for arm in ARMS for s in SEEDS
-            if not (arm == 'ros' and s == 42)]
-
-
-def synthetic_path(cfg, arm, seed):
-    if arm == 'ros' and seed == 42:
-        return OUT_DIR / run_name(cfg) / 'ros_synthetic.csv'
-    return SEED_DIR / run_name(cfg) / f'{arm}_seed{seed}.csv'
-
-
 def cmd_generate(args):
-    if args.task is not None:
-        args.config, args.arm, args.seed = seed_tasks()[args.task]
     cfg = load_configs()[args.config]
-    p = paths(cfg, args.data_dir)
-    train_csv = {'original': p['real'], 'ros': p['run_dir'] / 'ros_augmented.csv',
-                 'medequalizer': p['medeq_aug']}[args.arm]
-    print(f'{run_name(cfg)} arm={args.arm} seed={args.seed}', flush=True)
-    train_generator(cfg, train_csv, synthetic_path(cfg, args.arm, args.seed), args.seed,
+    run_dir = paths(cfg, args.data_dir)['run_dir']
+    print(f'{run_name(cfg)} ROS seed={SEED}', flush=True)
+    train_generator(cfg, run_dir / 'ros_augmented.csv', run_dir / 'ros_synthetic.csv', SEED,
                     epochs=args.epochs, n_samples=args.n_samples,
                     env_python=args.env_python, fenv_python=args.fenv_python)
 
@@ -273,52 +252,6 @@ def cmd_evaluate(args):
     print('\nEquitably represented subgroups (of 80):')
     print(wide.to_string())
     print(f'\nSaved {OUT_DIR / "ros_comparison.csv"}')
-
-
-def cmd_seeds(args):
-    """Seed study: GAN retraining variability with FIXED augmentation cohorts.
-
-    The Original (real.csv), ROS and MedEqualizer training cohorts are not
-    regenerated; only the generator seed changes. Missing runs are reported as
-    status='missing' and excluded from the summary, never imputed.
-    """
-    rscript = args.rscript or str(CONDA_ENVS / 'fenv' / 'bin' / 'Rscript')
-    rows = []
-    for cfg in load_configs():
-        p = paths(cfg, args.data_dir)
-        for arm in ARMS:
-            for seed in SEEDS:
-                syn = synthetic_path(cfg, arm, seed)
-                row = {'dataset': cfg['dataset'], 'generator': cfg['generator'],
-                       'tau': cfg['tau'], 'arm': arm, 'seed': seed,
-                       'variability_source': 'gan_retraining_fixed_augmentation_cohort',
-                       'reused_main_run': arm == 'ros' and seed == 42,
-                       'synthetic_file': str(syn.relative_to(BASE_DIR))}
-                if not syn.exists():
-                    rows.append({**row, 'status': 'missing'})
-                    print(f'MISSING {syn}')
-                    continue
-                plot_csv = SEED_DIR / run_name(cfg) / f'plot_{arm}_seed{seed}.csv'
-                plot_csv.parent.mkdir(parents=True, exist_ok=True)
-                counts = equity_labels(cfg['dataset'], p['real'], syn, plot_csv, rscript)
-                rows.append({**row, 'status': 'ok',
-                             'n_synthetic': len(pd.read_csv(syn, usecols=[0])), **counts})
-    res = pd.DataFrame(rows)
-    res.to_csv(OUT_DIR / 'ros_seed_study.csv', index=False)
-
-    ok = res[res['status'] == 'ok']
-    keys = ['dataset', 'generator', 'tau']
-    summary = ok.groupby(keys + ['arm'])['Equitable'].agg(['mean', 'std', 'count']).unstack('arm')
-    paired = ok.pivot_table(index=keys + ['seed'], columns='arm', values='Equitable')
-    paired = (paired['medequalizer'] - paired['ros']).dropna().rename('medeq_minus_ros')
-    print('Equitably represented subgroups (of 80), mean / SD / n seeds:')
-    print(summary.round(2).to_string())
-    print('\nPaired MedEqualizer - ROS by seed:')
-    print(paired.unstack('seed').to_string())
-    print('\nPaired difference, mean / SD / n:')
-    print(paired.groupby(keys).agg(['mean', 'std', 'count']).round(2).to_string())
-    print(f'\n{(res["status"] == "missing").sum()} missing runs')
-    print(f'Saved {OUT_DIR / "ros_seed_study.csv"}')
 
 
 def cmd_plot(args):
@@ -443,32 +376,28 @@ def parse_args():
     p = argparse.ArgumentParser(description='MedEqualizer – Random Oversampling baseline',
                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     sub = p.add_subparsers(dest='command', required=True)
-    for name in ('augment', 'generate', 'evaluate', 'seeds', 'plot', 'selftest'):
+    for name in ('augment', 'generate', 'evaluate', 'plot', 'selftest'):
         s = sub.add_parser(name)
         s.add_argument('--data_dir', default=str(BASE_DIR / 'data'),
                        help='Folder holding Mimic3/ and Mimic4/ real, augmented and synthetic data')
         s.add_argument('--config', type=int, default=None,
                        help='Index into final-configurations.json experiments')
-        s.add_argument('--seed', type=int, default=42)
         s.add_argument('--n_samples', type=int, default=100000)
         s.add_argument('--epochs', type=int, default=None,
                        help='Override finalized epochs (smoke tests only)')
         s.add_argument('--env_python', default=None, help='Python of the `env` conda env (CTGAN)')
         s.add_argument('--fenv_python', default=None, help='Python of the `fenv` conda env')
         s.add_argument('--rscript', default=None, help='Rscript with dplyr/tidyr/plyr')
-        s.add_argument('--arm', choices=ARMS, default='ros', help='Training cohort for generate')
-        s.add_argument('--task', type=int, default=None,
-                       help='Seed-study task index (sets --config/--arm/--seed); see seed_tasks()')
     args = p.parse_args()
-    if args.command == 'generate' and args.config is None and args.task is None:
-        p.error('generate requires --config or --task')
+    if args.command == 'generate' and args.config is None:
+        p.error('generate requires --config')
     return args
 
 
 def main():
     args = parse_args()
     {'augment': cmd_augment, 'generate': cmd_generate,
-     'evaluate': cmd_evaluate, 'seeds': cmd_seeds, 'plot': cmd_plot, 'selftest': cmd_selftest}[args.command](args)
+     'evaluate': cmd_evaluate, 'plot': cmd_plot, 'selftest': cmd_selftest}[args.command](args)
 
 
 if __name__ == '__main__':
