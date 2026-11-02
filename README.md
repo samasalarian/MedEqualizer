@@ -152,8 +152,7 @@ For each configuration, ROS keeps the real rows of the MedEqualizer augmented
 cohort and, in every gender × ethnicity × age-group subgroup, duplicates
 exactly as many real records (sampled with replacement) as MedEqualizer added
 there. The same generator is then retrained on the ROS cohort with the
-finalized hyperparameters and 100,000 synthetic records. Seed 42 is used for
-both ROS sampling and GAN training, matching the MedEqualizer runs.
+finalized hyperparameters and 100,000 synthetic records. 
 
 ```bash
 conda activate env
