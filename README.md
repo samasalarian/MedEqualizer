@@ -143,16 +143,33 @@ For execution without visualization, add `--skip_sunburst` and '--skip_barchart'
 
 ### Random oversampling (ROS) baseline
 
-`ros_baseline.py` compares MedEqualizer with random oversampling of real
-records, matched to MedEqualizer's per-subgroup additions, on representation
-fairness. It requires the augmented and synthetic outputs above.
+`ros_baseline.py` compares MedEqualizer with random oversampling (ROS) on
+representation fairness, for all six final configurations. It requires the
+augmented cohorts and the `before.csv` / `after_tau=...` synthetic data
+produced above.
+
+For each configuration, ROS keeps the real rows of the MedEqualizer augmented
+cohort and, in every gender × ethnicity × age-group subgroup, duplicates
+exactly as many real records (sampled with replacement) as MedEqualizer added
+there. The same generator is then retrained on the ROS cohort with the
+finalized hyperparameters and 100,000 synthetic records. Seed 42 is used for
+both ROS sampling and GAN training, matching the MedEqualizer runs.
 
 ```bash
 conda activate env
-python ros_baseline.py augment --data_dir data
+python ros_baseline.py augment --data_dir data            # ROS cohorts
 for i in 0 1 2 3 4 5; do python ros_baseline.py generate --data_dir data --config $i; done
-python ros_baseline.py evaluate --data_dir data   # results/ros/ros_comparison.csv
+python ros_baseline.py evaluate --data_dir data           # results/ros/ros_comparison.csv
+python ros_baseline.py plot                               # results/ros/ros_vs_medequalizer.pdf
 ```
+
+`generate` calls the `fenv` interpreter for HealthGAN and MedGAN, and
+`evaluate` calls `Rscript` from `fenv`. `evaluate` labels the 80
+mortality × race × age × gender subgroups of the Original, ROS, and
+MedEqualizer synthetic data with the same logarithmic disparity metric as the
+sunburst diagrams, and reports the count of subgroups in each representation
+category. Run `python ros_baseline.py selftest` to validate the ROS and
+evaluation steps on artificial data.
 
 ### Mortality prediction (TRTR / TSTR)
 
