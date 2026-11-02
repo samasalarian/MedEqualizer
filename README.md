@@ -61,7 +61,8 @@ FIRST_CAREUNIT, LAST_CAREUNIT, LOS.
 ## Reproducing the Experiments
 
 Execution order: preprocessing → baseline synthetic generation → MedEqualizer
-augmentation/filtering → final synthetic generation → mortality prediction.
+augmentation/filtering → final synthetic generation. Downstream mortality
+prediction (TRTR/TSTR) is a separate, leakage-free pipeline described below.
 The pipeline performs augmentation, subgroup-specific one-class SVM filtering,
 discriminative AUROC filtering, and final generation in one invocation.
 
@@ -140,17 +141,47 @@ python run_pipeline.py --dataset "$dataset" --model "$model" --tau "$tau" \
 
 For execution without visualization, add `--skip_sunburst` and '--skip_barchart' to the pipeline command.
 
-After generating all six baseline/final dataset pairs, run mortality prediction
-in `env`:
+### Random oversampling (ROS) baseline
+
+`ros_baseline.py` compares MedEqualizer with random oversampling of real
+records, matched to MedEqualizer's per-subgroup additions, on representation
+fairness. It requires the augmented and synthetic outputs above.
 
 ```bash
 conda activate env
-python pred/mortality_classification.py
+python ros_baseline.py augment --data_dir data
+for i in 0 1 2 3 4 5; do python ros_baseline.py generate --data_dir data --config $i; done
+python ros_baseline.py evaluate --data_dir data   # results/ros/ros_comparison.csv
 ```
 
-The driver uses stratified 80/20 splits with seeds `42 52 62 72 82` and reports
-AUROC for Decision Tree, KNN, Gradient Boosting, Histogram Gradient Boosting,
-and MLP.
+### Mortality prediction (TRTR / TSTR)
+
+Mortality prediction uses a separate pipeline so that held-out real test
+patients never reach augmentation, filtering, or GAN training. For each
+dataset, one patient-level, outcome-stratified 80/20 split is made (seed 42);
+MedEqualizer augmentation and GAN training use only the training split, with
+the finalized configurations and GAN seeds `42 52 62 72 82`.
+
+```bash
+conda activate env
+export CUDA_VISIBLE_DEVICES=""
+python pred/mortality_data.py split --data_dir data
+for i in 0 1 2 3 4 5; do python pred/mortality_data.py augment --config $i; done
+for k in $(seq 0 59); do python pred/mortality_data.py generate --task $k; done
+python pred/mortality_data.py verify
+python pred/mortality_cls.py
+```
+
+`generate` runs one of 60 trainings (6 configurations × original/MedEqualizer ×
+5 seeds) and can be parallelized, e.g. as a job array over `--task`.
+HealthGAN and MedGAN steps call the `fenv` interpreter automatically.
+
+`mortality_cls.py` trains KNN, random forest, and extra trees on the real
+training split (TRTR) and on each synthetic dataset (TSTR), and reports AUROC
+on the held-out real test patients: TRTR with a 95% bootstrap CI over test
+patients, TSTR as the mean over five GAN runs with a t-based 95% CI (df = 4).
+The outcome is any recorded death (`MORTALITY = 1`), not in-hospital or
+30-day mortality.
 
 ## Outputs
 
@@ -159,7 +190,9 @@ and MLP.
 | Model-ready input | `data/<Mimic3-or-Mimic4>/real/real.csv` |
 | Augmented cohort | `data/<cohort>/augmented/<model>/<tau>_0p2_auto_0p9_random_forest.csv` |
 | Baseline / final synthetic data | `data/<cohort>/synthetic/<model>/before.csv` / `after_tau=<tau>_nu0p2_auto_0p9_random_forest.csv` |
-| Mortality evaluation | `pred/mortality_auroc_table.csv` |
+| ROS baseline (representation fairness) | `results/ros/` |
+| Mortality data (splits, augmented cohorts, synthetic data) | `results/tstr_trtr/` |
+| Mortality evaluation (AUROC, 95% CI) | `results/mortality_cls_auroc.csv` |
 | Parameters, equity CSVs, sunburst HTML, bar-chart PNG | `visualization/results/<model>/<tag>/` |
 
 Generator intermediates and checkpoints are saved under
@@ -167,9 +200,10 @@ Generator intermediates and checkpoints are saved under
 `data/augmentation_counts_<model>.xlsx`. Sunburst HTML requires its sibling
 `*_files/` assets.
 
-Keep MIMIC data, patient-level processed/augmented/synthetic records, encoded
-intermediates, trained models, checkpoints, and run logs private; do not upload
-them publicly. Review aggregate results and figures for disclosure before release.
+Keep MIMIC data, patient-level processed/augmented/synthetic records
+(including the real train/test splits and synthetic data under `results/`),
+encoded intermediates, trained models, checkpoints, and run logs private; do
+not upload them publicly. Review aggregate results and figures for disclosure before release.
 
 ## Licensing
 
